@@ -876,7 +876,7 @@ void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataF
 	printf("|----||------------------------||------------------------||------------------------|\n");
 	for(i = 0; i < header1.removed || i < header2.removed || i < header3.removed; i++) {
 		if(i != 0)
-			printf("|    ||                     ||                     ||                     |\n|  | ||          |          ||          |          ||          |          |\n|  v ||          v          ||          v          ||          v          |\n|    ||                     ||                     ||                     |\n");		
+			printf("|    ||                        ||                        ||                        |\n|  | ||           |            ||           |            ||           |            |\n|  v ||           v            ||           v            ||           v            |\n|    ||                        ||                        ||                        |\n");		
 
 		getNumber(number, i + 1, 3);
 		printf("|%s |", number);
