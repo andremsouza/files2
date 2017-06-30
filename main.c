@@ -31,30 +31,75 @@ char *readLine(FILE *stream) {
 	return line;
 }
 
+int isnumber(char c) {
+	return c == '0' || c == '1' || c == '2' || c == '3' || c == '4' ||
+		c == '5' || c == '6' || c == '7' || c == '8' || c == '9';
+}
+
+int isNumber(char* str) {
+	while (*str)
+		if (!isnumber(*str++))
+			return 0;
+	return 1;
+}
+
 record_p read_record_main(FILE *stream) {
 	char number[1000];
 	record_p record = (record_p) calloc(1, sizeof(record_t));
-	printf("documento: ");
-	scanf("%[^\n]s", record->documento);
-	while(fgetc(stream) != '\n');
-	printf("dataHoraCadastro: ");
-	scanf("%[^\n]s", record->dataHoraCadastro);
-	while(fgetc(stream) != '\n');
-	printf("dataHoraAtualiza: ");
-	scanf("%[^\n]s", record->dataHoraAtualiza);
-	while(fgetc(stream) != '\n');
-	printf("ticket: ");
-	scanf("%[^\n]s", number);
+
+	printf("\n");
+
+	char *line = NULL;
+
+	do {
+		printf("documento(max: 19): ");
+		if (line)
+			free(line);
+		line = readLine(stream);
+	} while (strlen(line) > 19);
+	strcpy(record->documento, line);
+
+
+	do {
+		printf("dataHoraCadastro(max: 19): ");
+		if (line)
+			free(line);
+		line = readLine(stream);
+	} while (strlen(line) > 19);
+	strcpy(record->dataHoraCadastro, line);
+
+	do {
+		printf("dataHoraAtualiza(max: 19): ");
+		if (line)
+			free(line);
+		line = readLine(stream);
+	} while (strlen(line) > 19);
+	strcpy(record->dataHoraAtualiza, line);
+
+	do {
+		printf("ticket(int): ");
+		if (line)
+			free(line);
+		line = readLine(stdin);
+		// scanf("%[^\n]s", number);
+	} while (!isNumber(line));
 	record->ticket = atoi(number);
-	fgetc(stream);
+
+	if (line)
+		free(line);
+
 	printf("dominio: ");
 	record->dominio = readLine(stream);
+
 	printf("nome: ");
 	record->nome = readLine(stream);
+
 	printf("cidade: ");
 	record->cidade = readLine(stream);
+
 	printf("uf: ");
 	record->uf = readLine(stream);
+
 	return record;
 }
 
