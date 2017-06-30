@@ -62,11 +62,10 @@ typedef enum {
 } bool;
 
 // TODO
+// colocar na lista de removidos caso o espaco restante de uma insercao seja grande
 void insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecord);
 void insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord);
 void insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecord);
-//index header atualizado ou nao
-void print_data_file_header_record(char *dataFile);	// a tabela com os 3
 
 // DONE
 void import_csv_file(char *csvPath, char *filePath);
@@ -81,5 +80,6 @@ void compare_indices(char *index1Path, char *index2Path, char *index3Path);
 void free_record(record_p record);
 void print_record(record_p record, int i);
 void print_all_records(char *dataFilePath);
+void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataFile3);
 
 #endif

@@ -2,7 +2,12 @@
 
 // retorna o tamanho do registro, contando com o delimitador de registro
 int recordSize(record_p record) {
-	return (strlen(record->dominio) + strlen(record->nome) + strlen(record->cidade) + strlen(record->uf) + minRecordSize + 1);
+	int sum = 0;
+	if(record->dominio) sum += strlen(record->dominio);
+	if(record->nome) sum += strlen(record->nome);
+	if(record->cidade) sum += strlen(record->cidade);
+	if(record->uf) sum += strlen(record->uf);
+	return (sum + minRecordSize + 1);
 }
 
 // le um campo de tamanho variavel do arquivo de entrada '.csv'
@@ -82,6 +87,8 @@ void print_record(record_p record, int i) {
 	printf("dataHoraCadastro:\t%s\n", record->dataHoraCadastro);
 	printf("dataHoraAtualiza:\t%s\n", record->dataHoraAtualiza);
 	printf("ticket:\t%d\n", record->ticket);
+	printf("offset: %d\n", record->offset);
+	printf("SIZE: %d\n", record->totalSize);
 }
 
 // le um registro do arquivo de dados, desde que o ponteiro esteja em 0 ou no primeiro byte de um registro
@@ -113,15 +120,11 @@ record_p read_record(FILE *stream) {
 					recordData[i] = c;
 					continue;
 				} else {
-					if(recordData[i - 2] == 0) {
-						recordData[i] = c;
-						continue;
-					} else {
+					if(recordData[i - 2] != 0)
 						break;
-					}
 				}
-				
 			}
+
 			recordData[i] = c;
 		}
 	} while(recordData[0] == removedRecordFlag);
@@ -170,20 +173,32 @@ void write_record(FILE *file, record_p record) {
 	fwrite(record->dataHoraAtualiza, sizeof(char), size, file);
 	fwrite(&(record->ticket), sizeof(int), 1, file);
 
-	// Variable Size Fields 
-	size = strlen(record->dominio);
+	// Variable Size Fields
+	if(record->dominio)
+		size = strlen(record->dominio);
+	else
+		size = 0;
 	fwrite(&size, sizeof(int), 1, file);
 	fwrite(record->dominio, sizeof(char), size, file);
 
-	size = strlen(record->nome);
+	if(record->nome)
+		size = strlen(record->nome);
+	else
+		size = 0;
 	fwrite(&size, sizeof(int), 1, file);
 	fwrite(record->nome, sizeof(char), size, file);
 
-	size = strlen(record->cidade);
+	if(record->cidade)
+		size = strlen(record->cidade);
+	else
+		size = 0;
 	fwrite(&size, sizeof(int), 1, file);
 	fwrite(record->cidade, sizeof(char), size, file);
 
-	size = strlen(record->uf);
+	if(record->uf)
+		size = strlen(record->uf);
+	else
+		size = 0;
 	fwrite(&size, sizeof(int), 1, file);
 	fwrite(record->uf, sizeof(char), size, file);
 
@@ -483,43 +498,257 @@ index_p read_index(char *indexFilePath, indexh_t *header) {
 
 // Insere usando método first fit 
 void insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
-	// TODO
-	// esta apenas inserindo no final
-	FILE *dataFile;
-	int offset;
+	FILE *data;
+	header_t header;
+	remove_t removed, removedLast, remove;
+	int offset, lastOffset;
+	char d = removedRecordFlag;
 
-	dataFile = fopen(dataFilePath, "a");
-	offset = ftell(dataFile);
-	write_record(dataFile, newRecord);
-	fclose(dataFile);
+	// pega o tamanho do novo registro
+	newRecord->totalSize = recordSize(newRecord);
+
+	// abre o arquivo
+	data = fopen(dataFilePath, "r+");
+	fseek(data, 0, SEEK_SET);
+
+	// le o registro de cabecalho
+	fread(&header, sizeof(header_t), 1, data);
+
+	// encontra um lugar para inserir o novo registro
+	offset = header.stackTop;
+	lastOffset = -1;
+
+	while(offset != -1) {
+		fseek(data, offset, SEEK_SET);
+		fread(&removed, sizeof(remove_t), 1, data);
+		if(removed.recordSize >= newRecord->totalSize) {
+			// insere
+			fseek(data, offset, SEEK_SET);
+			write_record(data, newRecord);
+			header.removed--;
+
+			if(removed.recordSize > newRecord->totalSize) {
+				if(removed.recordSize >= newRecord->totalSize + minRecordSize) {
+					// reutiliza o espaco que sobrou colocando no topo da pilha
+
+					/*remove.flag = removedRecordFlag;
+					remove.nextOffset = ;
+					remove.recordSize = removed.recordSize - newRecord.totalSize;
+					*/
+				} else {
+					// se sobrou espaco, insere um '*' para indicar que os proximos bytes sao invalidos
+					fwrite(&d, sizeof(char), 1, data);
+				}
+			}
+
+			// 
+			if(lastOffset == -1) {
+				// atualiza o stackTop de 'header' para o 'nextOffset' de (remove_t)removed
+				header.stackTop = removed.nextOffset;
+			} else {
+				// atualiza o nextOffset do fseek lastOffset para o nextOffset do (remove_t)removed lido novamente
+				fseek(data, lastOffset, SEEK_SET);
+				fread(&removedLast, sizeof(remove_t), 1, data);
+				fseek(data, lastOffset, SEEK_SET);
+				removedLast.nextOffset = removed.nextOffset;
+				fwrite(&removedLast, sizeof(remove_t), 1, data);
+			}
+
+			break;
+		}
+
+		lastOffset = offset;
+		offset = remove.nextOffset;
+	}
+
+	if(offset == -1) {
+		// insere no final do arquivo
+		fseek(data, 0, SEEK_END);
+		offset = ftell(data);
+		write_record(data, newRecord);
+	}
+
+	// atualiza o cabecalho
+	header.nRecords++;
+	fseek(data, 0, SEEK_SET);
+	fwrite(&header, sizeof(header_t), 1, data);
+
+	// fecha arquivo
+	fclose(data);
+
+	// insere no arquivo de indice
 	insere_index(indexFilePath, newRecord->ticket, offset);
 }		
 
 // Insere usando método best fit 
 void insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
-	// TODO
-	// esta apenas inserindo no final
-	FILE *dataFile;
-	int offset;
+	FILE *data;
+	header_t header;
+	remove_t *removed;
+	int removedCounter, offset, j, smaller;
 
-	dataFile = fopen(dataFilePath, "a");
-	offset = ftell(dataFile);
-	write_record(dataFile, newRecord);
-	fclose(dataFile);
+	removedCounter = 0;
+	removed = NULL;
+
+	// pega o tamanho do novo registro
+	newRecord->totalSize = recordSize(newRecord);
+
+	// abre o arquivo
+	data = fopen(dataFilePath, "r+");
+	fseek(data, 0, SEEK_SET);
+
+	// le o registro de cabecalho
+	fread(&header, sizeof(header_t), 1, data);
+
+	// cria vetor para armazenar toda a lista de removidos
+	removed = (remove_t *) malloc(sizeof(remove_t) * header.removed);
+
+	// le toda a lista de removidos
+	offset = header.stackTop;
+	while(offset != -1) {
+		fseek(data, offset, SEEK_SET);
+		fread(&(removed[removedCounter]), sizeof(remove_t), 1, data);
+		offset = removed[removedCounter++].nextOffset;
+	}
+
+	// encontra a melhor posicao para inserir o novo registro
+	for(j = 1, smaller = 0; j < removedCounter; j++) {
+		if(removed[j].recordSize >= newRecord->totalSize && removed[j].recordSize < removed[smaller].recordSize)
+			smaller = j;
+	}
+
+	if(smaller < removedCounter && removed[smaller].recordSize >= newRecord->totalSize) {
+		// se foi encontrada um posicao valida, insere nela
+		header.removed--;
+		if(smaller == 0) {
+			// insere e atualiza header stackTop para nextOffset do removed[smaller]
+			fseek(data, header.stackTop, SEEK_SET);
+			offset = ftell(data);
+			write_record(data, newRecord);
+			header.stackTop = removed[smaller].nextOffset;
+		} else {
+			// insere
+			fseek(data, removed[smaller - 1].nextOffset, SEEK_SET);
+			offset = ftell(data);
+			write_record(data, newRecord);
+
+			// atualiza o nextOffset do removed[smaller - 1]
+			if((smaller - 1) == 0)
+				fseek(data, header.stackTop, SEEK_SET);
+			else
+				fseek(data, removed[smaller - 2].nextOffset, SEEK_SET);
+
+			// atualiza removed[smaller - 1] para nextOffset do removed[smaller]
+			removed[smaller - 1].nextOffset = removed[smaller].nextOffset;
+			fwrite(&(removed[smaller - 1]), sizeof(remove_t), 1, data);
+		}
+	} else {
+		// insere no fim do arquivo
+		fseek(data, 0, SEEK_END);
+		offset = ftell(data);
+		write_record(data, newRecord);
+	}
+
+
+	// atualiza o cabecalho
+	header.nRecords++;
+	fseek(data, 0, SEEK_SET);
+	fwrite(&header, sizeof(header_t), 1, data);
+
+	// fecha arquivo
+	fclose(data);
+
+	// desaloca memoria
+	if(removed)
+		free(removed);
+
+	// insere no arquivo de indice
 	insere_index(indexFilePath, newRecord->ticket, offset);
 }
 
 // Insere usando método worst fit 
 void insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
-	// TODO
-	// esta apenas inserindo no final
-	FILE *dataFile;
-	int offset;
+	FILE *data;
+	header_t header;
+	remove_t *removed;
+	int removedCounter, offset, j, bigger;
 
-	dataFile = fopen(dataFilePath, "a");
-	offset = ftell(dataFile);
-	write_record(dataFile, newRecord);
-	fclose(dataFile);
+	removedCounter = 0;
+	removed = NULL;
+
+	// pega o tamanho do novo registro
+	newRecord->totalSize = recordSize(newRecord);
+
+	// abre o arquivo
+	data = fopen(dataFilePath, "r+");
+	fseek(data, 0, SEEK_SET);
+
+	// le o registro de cabecalho
+	fread(&header, sizeof(header_t), 1, data);
+
+	// cria vetor para armazenar toda a lista de removidos
+	removed = (remove_t *) malloc(sizeof(remove_t) * header.removed);
+
+	// le toda a lista de removidos
+	offset = header.stackTop;
+	while(offset != -1) {
+		fseek(data, offset, SEEK_SET);
+		fread(&(removed[removedCounter]), sizeof(remove_t), 1, data);
+		offset = removed[removedCounter++].nextOffset;
+	}
+
+	// encontra a melhor posicao para inserir o novo registro
+	for(j = 1, bigger = 0; j < removedCounter; j++) {
+		if(removed[j].recordSize >= newRecord->totalSize && removed[j].recordSize > removed[bigger].recordSize)
+			bigger = j;
+	}
+
+	if(bigger < removedCounter && removed[bigger].recordSize >= newRecord->totalSize) {
+		// se foi encontrada um posicao valida, insere nela
+		header.removed--;
+		if(bigger == 0) {
+			// insere e atualiza header stackTop para nextOffset do removed[bigger]
+			fseek(data, header.stackTop, SEEK_SET);
+			offset = ftell(data);
+			write_record(data, newRecord);
+			header.stackTop = removed[bigger].nextOffset;
+		} else {
+			// insere
+			fseek(data, removed[bigger - 1].nextOffset, SEEK_SET);
+			offset = ftell(data);
+			write_record(data, newRecord);
+
+			// atualiza o nextOffset do removed[bigger - 1]
+			if((bigger - 1) == 0)
+				fseek(data, header.stackTop, SEEK_SET);
+			else
+				fseek(data, removed[bigger - 2].nextOffset, SEEK_SET);
+
+			// atualiza removed[bigger - 1] para nextOffset do removed[bigger]
+			removed[bigger - 1].nextOffset = removed[bigger].nextOffset;
+			fwrite(&(removed[bigger - 1]), sizeof(remove_t), 1, data);
+		}
+	} else {
+		// insere no fim do arquivo
+		fseek(data, 0, SEEK_END);
+		offset = ftell(data);
+		write_record(data, newRecord);
+	}
+
+
+	// atualiza o cabecalho
+	header.nRecords++;
+	fseek(data, 0, SEEK_SET);
+	fwrite(&header, sizeof(header_t), 1, data);
+
+	// fecha arquivo
+	fclose(data);
+
+	// desaloca memoria
+	if(removed)
+		free(removed);
+
+	// insere no arquivo de indice
 	insere_index(indexFilePath, newRecord->ticket, offset);
 }
 
@@ -568,34 +797,6 @@ int remove_record(char *dataFilePath, char *indexFilePath, int ticket) {
 	return 1;
 }
 
-// imprime o registro de cabecalho do arquivo de dados e a lista de arquivos removidos
-void print_data_file_header_record(char *dataFile) {
-	header_t header;
-	remove_t remove;
-	int offset;
-	FILE *data;
-	printf("\nTODO: A TABELA COM OS 3\n");
-	data = fopen(dataFile, "r");
-	if(!data) return;
-	fread(&header, sizeof(header_t), 1, data);
-	printf("\n\n---HEADER FILE---\n");
-	printf("stack top: %ld\n", header.stackTop);
-	printf("removed records: %d\n", header.removed);
-	printf("record number: %d\n", header.nRecords);
-	printf("---LISTA---\n");
-
-	offset = header.stackTop;
-	while(offset != -1) {
-		fseek(data, offset, SEEK_SET);
-		fread(&remove, sizeof(remove_t), 1, data);
-		printf("(tamanho: %d, offset: %d)\n", remove.recordSize, offset);
-		offset = remove.nextOffset;
-	}
-	printf("\n\n");
-
-	fclose(data);
-}
-
 // retorna val ^ n
 int power(int val, int n) {
 	int i, result = 1;
@@ -616,6 +817,87 @@ void getNumber(char *number, int val, int n) {
 	number[i] = '\0';
 }
 
+// imprime o registro de cabecalho do arquivo de dados e a lista de arquivos removidos
+void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataFile3) {
+	header_t header1, header2, header3;
+	remove_t remove1, remove2, remove3;
+	int offset1, offset2, offset3, i, stringSize = 7;
+	FILE *data1, *data2, *data3;
+	char number[100];
+
+	data1 = fopen(dataFile1, "r");
+	data2 = fopen(dataFile2, "r");
+	data3 = fopen(dataFile3, "r");
+
+	if(!data1 || !data2 || !data3) return;
+
+	fread(&header1, sizeof(header_t), 1, data1);
+	fread(&header2, sizeof(header_t), 1, data2);
+	fread(&header3, sizeof(header_t), 1, data3);
+
+	offset1 = header1.stackTop;
+	offset2 = header2.stackTop;
+	offset3 = header3.stackTop;
+
+	printf("\n|-------------------------------------------------------------------------|\n");
+	printf("|-------------------------- TABELA DE REMOVIDOS --------------------------|\n");
+	printf("|-------------------------------------------------------------------------|\n");
+	printf("|    || Indice 1            ||   Indice 2          ||    Indice 3         |\n");
+	printf("|----||---------------------||---------------------||---------------------|\n");
+	getNumber(number, header1.removed, 3);
+	printf("|  # || Removidos: %s", number);
+	getNumber(number, header2.removed, 3);
+	printf("      ||   Removidos: %s", number);
+	getNumber(number, header2.removed, 3);
+	printf("    ||    Removidos: %s   |\n", number);
+	printf("|----||---------------------||---------------------||---------------------|\n");
+
+	for(i = 0; i < header1.removed || i < header2.removed || i < header3.removed; i++) {
+		if(i != 0)
+			printf("|    ||                     ||                     ||                     |\n|  | ||          |          ||          |          ||          |          |\n|  v ||          v          ||          v          ||          v          |\n|    ||                     ||                     ||                     |\n");
+
+		getNumber(number, i + 1, 3);
+		printf("|%s |", number);
+
+		if(i < header1.removed) {
+			fseek(data1, offset1, SEEK_SET);
+			fread(&remove1, sizeof(remove_t), 1, data1);
+			getNumber(number, offset1, stringSize);
+			printf("|  (%s,", number);
+			getNumber(number, remove1.recordSize, stringSize);
+			printf("%s)  |", number);
+			offset1 = remove1.nextOffset;
+		} else printf("          --          \n");
+
+		if(i < header2.removed) {
+			fseek(data2, offset2, SEEK_SET);
+			fread(&remove2, sizeof(remove_t), 1, data2);
+			getNumber(number, offset2, stringSize);
+			printf("|  (%s,", number);
+			getNumber(number, remove2.recordSize, stringSize);
+			printf("%s)  |", number);
+			offset2 = remove2.nextOffset;
+		} else printf("          --          \n");
+
+		if(i < header3.removed) {
+			fseek(data3, offset3, SEEK_SET);
+			fread(&remove3, sizeof(remove_t), 1, data3);
+			getNumber(number, offset3, stringSize);
+			printf("|  (%s,", number);
+			getNumber(number, remove3.recordSize, stringSize);
+			printf("%s)  |\n", number);
+			offset3 = remove3.nextOffset;
+		} else printf("          --          \n");
+
+		//usleep(500000);
+	}
+	printf("|-------------------------------------------------------------------------|\n\n");
+
+	fclose(data1);
+	fclose(data2);
+	fclose(data3);
+}
+
 // imprime a tabela com os 3 indices
 void compare_indices(char *index1Path, char *index2Path, char *index3Path) {
 	FILE *index1, *index2, *index3;
@@ -632,13 +914,21 @@ void compare_indices(char *index1Path, char *index2Path, char *index3Path) {
 	fread(&header2, sizeof(indexh_t), 1, index2);
 	fread(&header3, sizeof(indexh_t), 1, index3);
 
-	printf("----------------------------------------------------------------------------\n");
-	printf("|--------------------------------- Tabela ---------------------------------|\n");
-	printf("----------------------------------------------------------------------------\n");
-	printf("     | Indice 1            | |   Indice 2          | |    Indice 3         |\n");
-	printf("----------------------------------------------------------------------------\n");
-	printf("|   #| Entradas: %d       | |   Entradas: %d     | |    Entradas: %d    |\n", header1.nElements, header2.nElements, header3.nElements);
-	printf("----------------------------------------------------------------------------\n");
+	printf("\n|--------------------------------------------------------------------------|\n");
+	printf("|--------------------------------- TABELA ---------------------------------|\n");
+	printf("|--------------------------------------------------------------------------|\n");
+	printf("|    | Indice 1            | |   Indice 2          | |    Indice 3         |\n");
+	printf("|--------------------------------------------------------------------------|\n");
+
+	getNumber(number, header1.nElements, 4);
+	printf("|   #| Entradas: %s", number);
+	getNumber(number, header2.nElements, 4);
+	printf("      | |   Entradas: %s", number);
+	getNumber(number, header2.nElements, 4);
+	printf("    | |    Entradas: %s   |\n", number);
+
+	//printf("|   #| Entradas: %d       | |   Entradas: %d     | |    Entradas: %d    |\n", header1.nElements, header2.nElements, header3.nElements);
+	printf("|--------------------------------------------------------------------------|\n");
 	for(i = 0; i < header1.nElements || i < header2.nElements || i < header3.nElements; i++) {
 		getNumber(number, i + 1, 4);
 		printf("|%s", number);
@@ -669,7 +959,7 @@ void compare_indices(char *index1Path, char *index2Path, char *index3Path) {
 		printf("\n");
 		//usleep(500000);
 	}
-	printf("----------------------------------------------------------------------------\n\n");
+	printf("|--------------------------------------------------------------------------|\n\n");
 
 	fclose(index1);
 	fclose(index2);

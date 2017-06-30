@@ -25,15 +25,20 @@ char *readLine(FILE *stream) {
 }
 
 record_p read_record_main(FILE *stream) {
+	char number[1000];
 	record_p record = (record_p) calloc(1, sizeof(record_t));
 	printf("documento: ");
-	scanf("%s", record->documento);
+	scanf("%[^\n]s", record->documento);
+	while(fgetc(stream) != '\n');
 	printf("dataHoraCadastro: ");
-	scanf("%s", record->dataHoraCadastro);
+	scanf("%[^\n]s", record->dataHoraCadastro);
+	while(fgetc(stream) != '\n');
 	printf("dataHoraAtualiza: ");
-	scanf("%s", record->dataHoraAtualiza);
+	scanf("%[^\n]s", record->dataHoraAtualiza);
+	while(fgetc(stream) != '\n');
 	printf("ticket: ");
-	scanf("%d", &(record->ticket));
+	scanf("%[^\n]s", number);
+	record->ticket = atoi(number);
 	fgetc(stream);
 	printf("dominio: ");
 	record->dominio = readLine(stream);
@@ -49,9 +54,10 @@ record_p read_record_main(FILE *stream) {
 int main(int argc, char *argv[]) {
 	int exit, func, ticket;
 	record_p record;
+	char a[200];
 
 	//system("cls");
-	system("clear");
+	//system("clear");
 
 	exit = 0;
 	while(!exit) {
@@ -91,15 +97,16 @@ int main(int argc, char *argv[]) {
 			break;
 
 			case 5:	// visualizar estatisticas dos arquivos de indice
+				//system("cls");
+				//system("clear");
 				compare_indices(index1Path, index2Path, index3Path);
 			break;
 
 			case 6:	// visualizar estatisticas do arquivo de dados
-				print_data_file_header_record(file1Path);
-				print_data_file_header_record(file2Path);
-				print_data_file_header_record(file3Path);
+				//system("cls");
+				//system("clear");
+				print_data_file_header_record(file1Path, file2Path, file3Path);
 				// espera enter para retornar ao menu
-				char a[100];
 				while(fgetc(stdin) != 10);
 				printf("Pressione enter para retornar ao menu.\n");
 				scanf("%[^\n]s", a);
@@ -117,7 +124,7 @@ int main(int argc, char *argv[]) {
 			// df: pergunta de novo
 		}
 		//system("cls");
-		system("clear");
+		//system("clear");
 	}
 
 	return 0;
