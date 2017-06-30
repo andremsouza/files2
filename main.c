@@ -2,13 +2,13 @@
 
 char csvPath[] = "SCC0215012017projeto01turmaAdadosDominios.csv"; // arquivo de entrada
 
-char file1Path[] = "1.txt";			// (first_fit)	arquivo de dados
-char file2Path[] = "2.txt";			// (best_fit)	arquivo de dados
-char file3Path[] = "3.txt";			// (worst_fit)	arquivo de dados
+char file1Path[] = "1";			// (first_fit)	arquivo de dados
+char file2Path[] = "2";			// (best_fit)	arquivo de dados
+char file3Path[] = "3";			// (worst_fit)	arquivo de dados
 
-char index1Path[] = "1_ticket.txt";	// first_fit	arquivo de indice
-char index2Path[] = "2_ticket.txt";	// best_fit		arquivo de indice
-char index3Path[] = "3_ticket.txt";	// worst_fit	arquivo de indice
+char index1Path[] = "1_ticket";	// first_fit	arquivo de indice
+char index2Path[] = "2_ticket";	// best_fit		arquivo de indice
+char index3Path[] = "3_ticket";	// worst_fit	arquivo de indice
 
 char *readLine(FILE *stream) {
 	char *line = NULL, c;

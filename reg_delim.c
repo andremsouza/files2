@@ -78,6 +78,7 @@ void print_record(record_p record, int i) {
 		printf("\n\nRECORD: %d -- NULO\n", i);
 		return;
 	}
+
 	printf("\n\nRECORD: %d\n", i);
 	printf("dominio:\t%s\n", record->dominio);
 	printf("documento:\t%s\n", record->documento);
@@ -127,7 +128,7 @@ record_p read_record(FILE *stream) {
 
 			recordData[i] = c;
 		}
-	} while(recordData[0] == removedRecordFlag);
+	} while(recordData[0] == removedRecordFlag && !feof(stream));
 
 	if(!i) return (record_p)NULL;
 
@@ -220,7 +221,7 @@ void import_csv_file(char *csvPath, char *filePath) {
 
 	fwrite(&header, sizeof(header_t), 1, file);
 
-	while(1) {		
+	while(1) {
 		record = readCSVFileRecord(csv);
 		if(!record) {
 			free_record(record);
@@ -530,10 +531,11 @@ void insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecor
 			if(removed.recordSize > newRecord->totalSize) {
 				if(removed.recordSize >= newRecord->totalSize + minRecordSize) {
 					// reutiliza o espaco que sobrou colocando no topo da pilha
-
 					/*remove.flag = removedRecordFlag;
-					remove.nextOffset = ;
-					remove.recordSize = removed.recordSize - newRecord.totalSize;
+					remove.nextOffset = header.stackTop;
+					header.stackTop = remove.nextOffset;
+					remove.recordSize = removed.recordSize - newRecord->totalSize;
+					fwrite(&remove, sizeof(remove_t), 1, data);
 					*/
 				} else {
 					// se sobrou espaco, insere um '*' para indicar que os proximos bytes sao invalidos
@@ -843,18 +845,19 @@ void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataF
 	printf("|-------------------------- TABELA DE REMOVIDOS --------------------------|\n");
 	printf("|-------------------------------------------------------------------------|\n");
 	printf("|    || Indice 1            ||   Indice 2          ||    Indice 3         |\n");
-	printf("|----||---------------------||---------------------||---------------------|\n");
+	printf("|    ||---------------------||---------------------||---------------------|\n");
 	getNumber(number, header1.removed, 3);
-	printf("|  # || Removidos: %s", number);
+	printf("|    || Removidos: %s", number);
 	getNumber(number, header2.removed, 3);
 	printf("      ||   Removidos: %s", number);
 	getNumber(number, header2.removed, 3);
 	printf("    ||    Removidos: %s   |\n", number);
 	printf("|----||---------------------||---------------------||---------------------|\n");
-
+	printf("|  # ||  offset  | tamanho  ||  offset  | tamanho  ||  offset  | tamanho  |\n");
+	printf("|----||---------------------||---------------------||---------------------|\n");
 	for(i = 0; i < header1.removed || i < header2.removed || i < header3.removed; i++) {
 		if(i != 0)
-			printf("|    ||                     ||                     ||                     |\n|  | ||          |          ||          |          ||          |          |\n|  v ||          v          ||          v          ||          v          |\n|    ||                     ||                     ||                     |\n");
+			printf("|    ||                     ||                     ||                     |\n|  | ||          |          ||          |          ||          |          |\n|  v ||          v          ||          v          ||          v          |\n|    ||                     ||                     ||                     |\n");		
 
 		getNumber(number, i + 1, 3);
 		printf("|%s |", number);
@@ -915,19 +918,18 @@ void compare_indices(char *index1Path, char *index2Path, char *index3Path) {
 	fread(&header3, sizeof(indexh_t), 1, index3);
 
 	printf("\n|--------------------------------------------------------------------------|\n");
-	printf("|--------------------------------- TABELA ---------------------------------|\n");
+	printf("|---------------------------- TABELA DE INDICES ---------------------------|\n");
 	printf("|--------------------------------------------------------------------------|\n");
 	printf("|    | Indice 1            | |   Indice 2          | |    Indice 3         |\n");
 	printf("|--------------------------------------------------------------------------|\n");
-
 	getNumber(number, header1.nElements, 4);
-	printf("|   #| Entradas: %s", number);
+	printf("|    | Entradas: %s", number);
 	getNumber(number, header2.nElements, 4);
 	printf("      | |   Entradas: %s", number);
 	getNumber(number, header2.nElements, 4);
 	printf("    | |    Entradas: %s   |\n", number);
-
-	//printf("|   #| Entradas: %d       | |   Entradas: %d     | |    Entradas: %d    |\n", header1.nElements, header2.nElements, header3.nElements);
+	printf("|--------------------------------------------------------------------------|\n");
+	printf("|   #| Ticket   | Offset   | | Ticket   | Offset   | | Ticket   | Offset   |\n");
 	printf("|--------------------------------------------------------------------------|\n");
 	for(i = 0; i < header1.nElements || i < header2.nElements || i < header3.nElements; i++) {
 		getNumber(number, i + 1, 4);
