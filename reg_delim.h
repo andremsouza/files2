@@ -71,9 +71,9 @@ typedef enum {
 
 // TODO
 // colocar na lista de removidos caso o espaco restante de uma insercao seja grande
-void insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecord);
-void insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord);
-void insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecord);
+int insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecord);
+int insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord);
+int insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecord);
 
 // DONE
 void import_csv_file(char *csvPath, char *filePath);
