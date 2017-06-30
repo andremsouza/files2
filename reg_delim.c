@@ -814,21 +814,26 @@ int power(int val, int n) {
 
 // transforma o numero val para string
 void getNumber(char *number, int val, int n) {
-	int i, dig = 1, valAux = val;
-	while((valAux /= 10)) dig++;
-	for(i = 0; i < n - dig; i++)
-		number[i] = ' ';
-	dig--;
-	for(; dig >= 0; dig--, i++)
-		number[i] = '0' + ((val / power(10, dig) % 10));
-	number[i] = '\0';
+	if(val == -1) {
+		for(int j = 0; j < n; j++) number[j] = ' ';
+		strcpy(number + n - 4, "NULL");
+	} else {
+		int i, dig = 1, valAux = val;
+		while((valAux /= 10)) dig++;
+		for(i = 0; i < n - dig; i++)
+			number[i] = ' ';
+		dig--;
+		for(; dig >= 0; dig--, i++)
+			number[i] = '0' + ((val / power(10, dig) % 10));
+		number[i] = '\0';
+	}
 }
 
 // imprime o registro de cabecalho do arquivo de dados e a lista de arquivos removidos
 void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataFile3) {
 	header_t header1, header2, header3;
 	remove_t remove1, remove2, remove3;
-	int offset1, offset2, offset3, i, stringSize = 7;
+	int offset1, offset2, offset3, i, stringSize = 8;
 	FILE *data1, *data2, *data3;
 	char number[100];
 
@@ -846,23 +851,32 @@ void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataF
 	offset2 = header2.stackTop;
 	offset3 = header3.stackTop;
 
-	printf("\n|-------------------------------------------------------------------------|\n");
-	printf("|-------------------------- TABELA DE REMOVIDOS --------------------------|\n");
-	printf("|-------------------------------------------------------------------------|\n");
-	printf("|    || Indice 1            ||   Indice 2          ||    Indice 3         |\n");
-	printf("|    ||---------------------||---------------------||---------------------|\n");
-	getNumber(number, header1.removed, 3);
+	printf("\n|----------------------------------------------------------------------------------|\n");
+	printf("|------------------------------- TABELA DE REMOVIDOS ------------------------------|\n");
+	printf("|----------------------------------------------------------------------------------|\n");
+	printf("|    || Indice 1               ||   Indice 2             ||    Indice 3            |\n");
+	printf("|    ||------------------------||------------------------||------------------------|\n");
+	getNumber(number, header1.removed, 6);
 	printf("|    || Removidos: %s", number);
-	getNumber(number, header2.removed, 3);
+	getNumber(number, header2.removed, 6);
 	printf("      ||   Removidos: %s", number);
-	getNumber(number, header2.removed, 3);
+	getNumber(number, header3.removed, 6);
 	printf("    ||    Removidos: %s   |\n", number);
-	printf("|----||---------------------||---------------------||---------------------|\n");
-	printf("|  # ||  offset  | tamanho  ||  offset  | tamanho  ||  offset  | tamanho  |\n");
-	printf("|----||---------------------||---------------------||---------------------|\n");
+	printf("|    ||------------------------||------------------------||------------------------|\n");
+
+	getNumber(number, header1.stackTop, 6);
+	printf("|    || Inicio da Lista:%s", number);
+	getNumber(number, header2.stackTop, 6);
+	printf(" || Inicio da Lista:%s", number);
+	getNumber(number, header3.stackTop, 6);
+	printf(" || Inicio da Lista:%s |\n", number);
+	printf("|----||------------------------||------------------------||------------------------|\n");
+
+	printf("|  # ||  tamanho  |    offset  ||  tamanho  |    offset  ||  tamanho  |    offset  |\n");
+	printf("|----||------------------------||------------------------||------------------------|\n");
 	for(i = 0; i < header1.removed || i < header2.removed || i < header3.removed; i++) {
 		if(i != 0)
-			printf("|    ||                     ||                     ||                     |\n|  | ||          |          ||          |          ||          |          |\n|  v ||          v          ||          v          ||          v          |\n|    ||                     ||                     ||                     |\n");
+			printf("|    ||                     ||                     ||                     |\n|  | ||          |          ||          |          ||          |          |\n|  v ||          v          ||          v          ||          v          |\n|    ||                     ||                     ||                     |\n");		
 
 		getNumber(number, i + 1, 3);
 		printf("|%s |", number);
@@ -870,9 +884,9 @@ void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataF
 		if(i < header1.removed) {
 			fseek(data1, offset1, SEEK_SET);
 			fread(&remove1, sizeof(remove_t), 1, data1);
-			getNumber(number, offset1, stringSize);
-			printf("|  (%s,", number);
 			getNumber(number, remove1.recordSize, stringSize);
+			printf("|  (%s,", number);
+			getNumber(number, remove1.nextOffset, stringSize + 1);
 			printf("%s)  |", number);
 			offset1 = remove1.nextOffset;
 		} else printf("          --          \n");
@@ -880,9 +894,9 @@ void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataF
 		if(i < header2.removed) {
 			fseek(data2, offset2, SEEK_SET);
 			fread(&remove2, sizeof(remove_t), 1, data2);
-			getNumber(number, offset2, stringSize);
-			printf("|  (%s,", number);
 			getNumber(number, remove2.recordSize, stringSize);
+			printf("|  (%s,", number);
+			getNumber(number, remove2.nextOffset, stringSize + 1);
 			printf("%s)  |", number);
 			offset2 = remove2.nextOffset;
 		} else printf("          --          \n");
@@ -890,16 +904,16 @@ void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataF
 		if(i < header3.removed) {
 			fseek(data3, offset3, SEEK_SET);
 			fread(&remove3, sizeof(remove_t), 1, data3);
-			getNumber(number, offset3, stringSize);
-			printf("|  (%s,", number);
 			getNumber(number, remove3.recordSize, stringSize);
+			printf("|  (%s,", number);
+			getNumber(number, remove3.nextOffset, stringSize + 1);
 			printf("%s)  |\n", number);
 			offset3 = remove3.nextOffset;
 		} else printf("          --          \n");
 
 		//usleep(500000);
 	}
-	printf("|-------------------------------------------------------------------------|\n\n");
+	printf("|----------------------------------------------------------------------------------|\n\n");
 
 	fclose(data1);
 	fclose(data2);
