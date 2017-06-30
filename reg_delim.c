@@ -379,7 +379,7 @@ int index_search(char *indexFilePath, int ticket) {
 		return -1;
 	}
 
-	// carrega par a a memoria
+	// carrega para a memoria
 	if(fread(&indexHeader, sizeof(indexh_t), 1, index) != 1) return -1;
 	indexData = (index_p) malloc(sizeof(index_t) * indexHeader.nElements);
 	fread(indexData, sizeof(index_t), indexHeader.nElements, index);
@@ -504,12 +504,16 @@ index_p read_index(char *indexFilePath, indexh_t *header) {
 }
 
 // Insere usando método first fit
-void insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
+int insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
 	FILE *data;
 	header_t header;
 	remove_t removed, removedLast, remove;
 	int offset, lastOffset;
 	char d = removedRecordFlag;
+
+	// checa se a chave primaria ja existe
+	if(index_search(indexFilePath, newRecord->ticket) != -1)
+		return -1;
 
 	// pega o tamanho do novo registro
 	newRecord->totalSize = recordSize(newRecord);
@@ -586,10 +590,12 @@ void insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecor
 
 	// insere no arquivo de indice
 	insere_index(indexFilePath, newRecord->ticket, offset);
+
+	return 1;
 }
 
 // Insere usando método best fit
-void insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
+int insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
 	FILE *data;
 	header_t header;
 	remove_t *removed;
@@ -597,6 +603,10 @@ void insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord
 
 	removedCounter = 0;
 	removed = NULL;
+
+	// checa se a chave primaria ja existe
+	if(index_search(indexFilePath, newRecord->ticket) != -1)
+		return -1;
 
 	// pega o tamanho do novo registro
 	newRecord->totalSize = recordSize(newRecord);
@@ -672,10 +682,12 @@ void insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord
 
 	// insere no arquivo de indice
 	insere_index(indexFilePath, newRecord->ticket, offset);
+
+	return 1;
 }
 
 // Insere usando método worst fit
-void insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
+int insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
 	FILE *data;
 	header_t header;
 	remove_t *removed;
@@ -683,6 +695,10 @@ void insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecor
 
 	removedCounter = 0;
 	removed = NULL;
+
+	// checa se a chave primaria ja existe
+	if(index_search(indexFilePath, newRecord->ticket) != -1)
+		return -1;
 
 	// pega o tamanho do novo registro
 	newRecord->totalSize = recordSize(newRecord);
@@ -758,6 +774,8 @@ void insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecor
 
 	// insere no arquivo de indice
 	insere_index(indexFilePath, newRecord->ticket, offset);
+
+	return 1;
 }
 
 // remove o registro, retorna -1 se o registro nao existe
