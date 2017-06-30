@@ -44,7 +44,6 @@ int isNumber(char* str) {
 }
 
 record_p read_record_main(FILE *stream) {
-	char number[1000];
 	record_p record = (record_p) calloc(1, sizeof(record_t));
 
 	printf("\n");
@@ -81,9 +80,8 @@ record_p read_record_main(FILE *stream) {
 		if (line)
 			free(line);
 		line = readLine(stdin);
-		// scanf("%[^\n]s", number);
 	} while (!isNumber(line));
-	record->ticket = atoi(number);
+	record->ticket = atoi(line);
 
 	if (line)
 		free(line);
@@ -146,24 +144,23 @@ int main(int argc, char *argv[]) {
 				while(fgetc(stdin) != '\n');
 				record = read_record_main(stdin);
 
-				insert_first_fit(file1Path, index1Path, record);
-				insert_best_fit(file2Path, index2Path, record);
-				insert_worst_fit(file3Path, index3Path, record);
+				if (insert_first_fit(file1Path, index1Path, record) != -1) {
+					insert_best_fit(file2Path, index2Path, record);
+					insert_worst_fit(file3Path, index3Path, record);
+					printf("\nRegistro inserido com sucesso.\n\n");
+				} else {
+					printf("\nRegistro com esse ticket ja existe.\n\n");
+				}
 
 				free_record(record);
 
-				printf("\nRegistro inserido com sucesso.\n\n");
 			break;
 
 			case 5:	// visualizar estatisticas dos arquivos de indice
-				//system("cls");
-				//system("clear");
 				compare_indices(index1Path, index2Path, index3Path);
 			break;
 
 			case 6:	// visualizar estatisticas do arquivo de dados
-				//system("cls");
-				//system("clear");
 				print_data_file_header_record(file1Path, file2Path, file3Path);
 				// espera enter para retornar ao menu
 				while(fgetc(stdin) != 10);
@@ -182,8 +179,6 @@ int main(int argc, char *argv[]) {
 
 			// df: pergunta de novo
 		}
-		//system("cls");
-		//system("clear");
 	}
 
 	return 0;
