@@ -1,3 +1,10 @@
+/**
+ * André Moreira Souza - 9778985
+ * Carlos André Martins Neves - 8955195
+ * Guilherme Amorim Menegali - 8531289
+ * Vitor Trevelin Xavier da Silva - 9791285
+ */
+
 #include "reg_delim.h"
 
 char csvPath[] = "SCC0215012017projeto01turmaAdadosDominios.csv"; // arquivo de entrada
@@ -80,20 +87,27 @@ int main(int argc, char *argv[]) {
 			case 3:	// remover registro
 				printf("Digite o ticket do registro a ser removido: ");
 				scanf("%d", &ticket);
-				remove_record(file1Path, index1Path, ticket);
-				remove_record(file2Path, index2Path, ticket);
-				remove_record(file3Path, index3Path, ticket);
+				if (remove_record(file1Path, index1Path, ticket) != -1) {
+					remove_record(file2Path, index2Path, ticket);
+					remove_record(file3Path, index3Path, ticket);
+					printf("\nRegistro removido com sucesso.\n\n");
+				} else {
+					printf("\nRegistro nao encontrado.\n\n");
+				}
 			break;
 
 			// TODO
 			case 4:	// inserir registro
 				while(fgetc(stdin) != '\n');
 				record = read_record_main(stdin);
-				print_record(record, 201);
+
 				insert_first_fit(file1Path, index1Path, record);
 				insert_best_fit(file2Path, index2Path, record);
 				insert_worst_fit(file3Path, index3Path, record);
+
 				free_record(record);
+
+				printf("\nRegistro inserido com sucesso.\n\n");
 			break;
 
 			case 5:	// visualizar estatisticas dos arquivos de indice

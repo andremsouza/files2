@@ -1,3 +1,10 @@
+/**
+ * André Moreira Souza - 9778985
+ * Carlos André Martins Neves - 8955195
+ * Guilherme Amorim Menegali - 8531289
+ * Vitor Trevelin Xavier da Silva - 9791285
+ */
+
 #ifndef REG_DELIM_H
 #define REG_DELIM_H
 

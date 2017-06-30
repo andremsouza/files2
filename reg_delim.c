@@ -1,3 +1,10 @@
+/**
+ * André Moreira Souza - 9778985
+ * Carlos André Martins Neves - 8955195
+ * Guilherme Amorim Menegali - 8531289
+ * Vitor Trevelin Xavier da Silva - 9791285
+ */
+
 #include "reg_delim.h"
 
 // retorna o tamanho do registro, contando com o delimitador de registro
@@ -138,7 +145,7 @@ record_p read_record(FILE *stream) {
 	memcpy(record->dataHoraCadastro, recordData + k, size);	record->dataHoraCadastro[size] = '\0';	k += size;
 	memcpy(record->dataHoraAtualiza, recordData + k, size);	record->dataHoraAtualiza[size] = '\0';	k += size;
 	memcpy(&(record->ticket), recordData + k, sizeof(int));											k += sizeof(int);
-	
+
 	memcpy(&size, recordData + k, sizeof(int));														k += sizeof(int);
 	record->dominio = (char *) malloc((size + 1) * sizeof(char));
 	memcpy(record->dominio, recordData + k, size);			record->dominio[size] = '\0';			k += size;
@@ -241,7 +248,7 @@ void import_csv_file(char *csvPath, char *filePath) {
 	fclose(file);
 }
 
-// faz uma busca sequencial no arquivo de dados, usado para teste 
+// faz uma busca sequencial no arquivo de dados, usado para teste
 int sequencial_search(char *dataFilePath, int ticket) {
 	int offset = sizeof(header_t);
 	FILE *file;
@@ -255,7 +262,7 @@ int sequencial_search(char *dataFilePath, int ticket) {
 	while(1) {
 		record = read_record(file);
 		if(!record) break;
-		free_record(record);		
+		free_record(record);
 		if(record->ticket == ticket) {
 			fclose(file);
 			return offset;
@@ -332,7 +339,7 @@ void insere_index(char *indexFilePath, int ticket, int offset) {
 	indexHeader.nElements++;
 	fseek(index, 0, SEEK_SET);
 	fwrite(&indexHeader, sizeof(indexh_t), 1, index);
-	
+
 	// insere o novo elemento
 	fseek(index, (start * sizeof(index_t)), SEEK_CUR);
 	fwrite(&newIRecord, sizeof(index_t), 1, index);
@@ -418,7 +425,6 @@ int remove_index(char *indexFilePath, int ticket) {
 	// carrega o arquivo na memória
 	index = fopen(indexFilePath, "r+");
 	if(fread(&indexHeader, sizeof(indexh_t), 1, index) != 1) {
-		printf("Registro nao existe.\n");
 		return -1;
 	}
 	indexData = (index_p) malloc(sizeof(index_t) * indexHeader.nElements);
@@ -497,7 +503,7 @@ index_p read_index(char *indexFilePath, indexh_t *header) {
 	return indexData;
 }
 
-// Insere usando método first fit 
+// Insere usando método first fit
 void insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
 	FILE *data;
 	header_t header;
@@ -543,7 +549,7 @@ void insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecor
 				}
 			}
 
-			// 
+			//
 			if(lastOffset == -1) {
 				// atualiza o stackTop de 'header' para o 'nextOffset' de (remove_t)removed
 				header.stackTop = removed.nextOffset;
@@ -580,9 +586,9 @@ void insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecor
 
 	// insere no arquivo de indice
 	insere_index(indexFilePath, newRecord->ticket, offset);
-}		
+}
 
-// Insere usando método best fit 
+// Insere usando método best fit
 void insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
 	FILE *data;
 	header_t header;
@@ -668,7 +674,7 @@ void insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord
 	insere_index(indexFilePath, newRecord->ticket, offset);
 }
 
-// Insere usando método worst fit 
+// Insere usando método worst fit
 void insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
 	FILE *data;
 	header_t header;
@@ -765,7 +771,6 @@ int remove_record(char *dataFilePath, char *indexFilePath, int ticket) {
 	offset = remove_index(indexFilePath, ticket);
 
 	if(offset < 0) {// registro não encontrado
-		printf("Record not found.\n");
 		return -1;
 	}
 
@@ -857,7 +862,7 @@ void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataF
 	printf("|----||---------------------||---------------------||---------------------|\n");
 	for(i = 0; i < header1.removed || i < header2.removed || i < header3.removed; i++) {
 		if(i != 0)
-			printf("|    ||                     ||                     ||                     |\n|  | ||          |          ||          |          ||          |          |\n|  v ||          v          ||          v          ||          v          |\n|    ||                     ||                     ||                     |\n");		
+			printf("|    ||                     ||                     ||                     |\n|  | ||          |          ||          |          ||          |          |\n|  v ||          v          ||          v          ||          v          |\n|    ||                     ||                     ||                     |\n");
 
 		getNumber(number, i + 1, 3);
 		printf("|%s |", number);
