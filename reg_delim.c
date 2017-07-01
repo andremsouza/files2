@@ -14,7 +14,7 @@ int recordSize(record_p record) {
 	if(record->nome) sum += strlen(record->nome);
 	if(record->cidade) sum += strlen(record->cidade);
 	if(record->uf) sum += strlen(record->uf);
-	return (sum + minRecordSize + 1);
+	return (sum + minRecordSize);
 }
 
 // le um campo de tamanho variavel do arquivo de entrada '.csv'
@@ -102,9 +102,9 @@ void print_record(record_p record, int i) {
 // le um registro do arquivo de dados, desde que o ponteiro esteja em 0 ou no primeiro byte de um registro
 record_p read_record(FILE *stream) {
 	record_p record = (record_p) calloc(1, sizeof(record_t));
-	char recordData[1024];
+	char recordData[16 * 1024];
 	unsigned char c;
-	int i, k, size;
+	int i, k, size, y, z, w;
 
 	if(ftell(stream) == 0)
 		fseek(stream, sizeof(header_t), SEEK_CUR);
@@ -115,24 +115,16 @@ record_p read_record(FILE *stream) {
 		for(i = 0;; i++) {
 			c = fgetc(stream);
 			if(feof(stream)) break;
-			// Para o nosso conjunto de dados, 1 byte pode repetir nosso delimitador em qualquer um dos 5 elementos do tipo int gravados no arquivo...
-			// 1) no ticket pode aparecer em qlqr 1 de seus 4 bytes
-			// 2) nos indicadores de tamanho, para nosso conjuto de dados, o byte delimitador só aparecerá no quarto byte(tamanho < 15104, não há campos tão grandes)
-			// Solução:
-			// 1) checar se i >= 57 && i <= 60, se sim deixa passar, caso contrário, para.
-			// 2) checar se o byte (i - 3) == 0, se sim deixa passar, se não, para.
-			// Obs: o delimitador pode aparecer apartir de i == 57
-
 			if(c == delim) { // resolve o problema do delimitador
-				if(i >= 57 && i <= 60) {
-					recordData[i] = c;
-					continue;
-				} else {
-					if(recordData[i - 2] != 0)
-						break;
-				}
+				if(i >= 57 && i <= 64) { recordData[i] = c; continue; }
+				y = (61 + 4 + *(int *)(&recordData[61]));
+				if(i >= y && i <= (y + 3)) { recordData[i] = c; continue; }
+				z = (y + 4 + *(int *)(&recordData[y]));
+				if(i >= z && i <= (z + 3)) { recordData[i] = c; continue; }
+				w = (z + 4 + *(int *)(&recordData[z]));
+				if(i >= w && i <= (w + 3)) { recordData[i] = c; continue; }
+				break;
 			}
-
 			recordData[i] = c;
 		}
 	} while(recordData[0] == removedRecordFlag && !feof(stream));
@@ -508,7 +500,7 @@ int insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecord
 	FILE *data;
 	header_t header;
 	remove_t removed, removedLast, remove;
-	int offset, lastOffset;
+	int offset, lastOffset, newOffset;
 	char d = removedRecordFlag;
 
 	// checa se a chave primaria ja existe
@@ -535,37 +527,69 @@ int insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecord
 		if(removed.recordSize >= newRecord->totalSize) {
 			// insere
 			fseek(data, offset, SEEK_SET);
+			print_record(newRecord, 1);
 			write_record(data, newRecord);
 			header.removed--;
 
-			if(removed.recordSize > newRecord->totalSize) {
-				if(removed.recordSize >= newRecord->totalSize + minRecordSize) {
-					// reutiliza o espaco que sobrou colocando no topo da pilha
-					/*remove.flag = removedRecordFlag;
-					remove.nextOffset = header.stackTop;
-					header.stackTop = remove.nextOffset;
+			// atualiza 'ponteiros'
+			if(lastOffset == -1) {	// inserimos no registro do topo da lista
+				if(removed.recordSize >= newRecord->totalSize + minRecordSize) {	// ha espaco para um novo registro
+					// escreve os bytes indicando que ha espaco livre para um novo registro
+					remove.flag = removedRecordFlag;
+					remove.nextOffset = removed.nextOffset;
 					remove.recordSize = removed.recordSize - newRecord->totalSize;
+
+					// atualiza o registro de cabecalho
+					header.stackTop = ftell(data);
+					header.removed++;
+
+					// escreve
 					fwrite(&remove, sizeof(remove_t), 1, data);
-					*/
-				} else {
-					// se sobrou espaco, insere um '*' para indicar que os proximos bytes sao invalidos
+				} else if(removed.recordSize > newRecord->totalSize) {	// nao ha espaco para um novo registro, mas sobraram bytes:
+					// insere um '*' para indicar que os proximos bytes sao invalidos
 					fwrite(&d, sizeof(char), 1, data);
+
+					// atualiza o topo da lista
+					header.stackTop = removed.nextOffset;
+				} else {	// nao sobrou espaco
+					// atualiza o topo da lista
+					header.stackTop = removed.nextOffset;
+				}
+			} else {	// inserimos em um elemento do meio ou fim da lista
+				if(removed.recordSize >= newRecord->totalSize + minRecordSize) {	// ha espaco para um novo registro
+					header.removed++;
+					// escreve os bytes indicando que ha espaco livre para um novo registro
+					remove.flag = removedRecordFlag;
+					remove.nextOffset = removed.nextOffset;
+					remove.recordSize = removed.recordSize - newRecord->totalSize;
+					newOffset = ftell(data);
+					fwrite(&remove, sizeof(remove_t), 1, data);
+
+					// vai ate o elemento anterior da lista e atualiza seu campo 'nextOffset' para o offset do espaco livre
+					fseek(data, lastOffset, SEEK_SET);
+					fread(&remove, sizeof(remove_t), 1, data);
+					remove.nextOffset = newOffset;
+					fseek(data, lastOffset, SEEK_SET);
+					fwrite(&remove, sizeof(remove_t), 1, data);
+				} else if(removed.recordSize > newRecord->totalSize) {	// nao ha espaco para um novo registro, mas sobraram bytes:
+					// insere um '*' para indicar que os proximos bytes sao invalidos
+					fwrite(&d, sizeof(char), 1, data);
+
+					// atualiza o campo 'nextOffset' do elemento anterior da lista para o campo 'nextOffset' do elemento que foi reutilizado
+					fseek(data, lastOffset, SEEK_SET);
+					fread(&removedLast, sizeof(remove_t), 1, data);
+					fseek(data, lastOffset, SEEK_SET);
+					removedLast.nextOffset = removed.nextOffset;
+					fwrite(&removedLast, sizeof(remove_t), 1, data);
+				} else {	// nao sobrou espaco
+					// atualiza o campo 'nextOffset' do elemento anterior da lista para o campo 'nextOffset' do elemento que foi reutilizado
+					fseek(data, lastOffset, SEEK_SET);
+					fread(&removedLast, sizeof(remove_t), 1, data);
+					fseek(data, lastOffset, SEEK_SET);
+					removedLast.nextOffset = removed.nextOffset;
+					fwrite(&removedLast, sizeof(remove_t), 1, data);
 				}
 			}
-
-			//
-			if(lastOffset == -1) {
-				// atualiza o stackTop de 'header' para o 'nextOffset' de (remove_t)removed
-				header.stackTop = removed.nextOffset;
-			} else {
-				// atualiza o nextOffset do fseek lastOffset para o nextOffset do (remove_t)removed lido novamente
-				fseek(data, lastOffset, SEEK_SET);
-				fread(&removedLast, sizeof(remove_t), 1, data);
-				fseek(data, lastOffset, SEEK_SET);
-				removedLast.nextOffset = removed.nextOffset;
-				fwrite(&removedLast, sizeof(remove_t), 1, data);
-			}
-
 			break;
 		}
 
@@ -598,11 +622,13 @@ int insert_first_fit(char *dataFilePath, char *indexFilePath, record_p newRecord
 int insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
 	FILE *data;
 	header_t header;
-	remove_t *removed;
-	int removedCounter, offset, j, smaller;
+	remove_t *removed, remove, removedLast;
+	int removedCounter, offset, newOffset, j, smaller;
+	char d;
 
 	removedCounter = 0;
 	removed = NULL;
+	d = removedRecordFlag;
 
 	// checa se a chave primaria ja existe
 	if(index_search(indexFilePath, newRecord->ticket) != -1)
@@ -635,33 +661,102 @@ int insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord)
 			smaller = j;
 	}
 
-	if(smaller < removedCounter && removed[smaller].recordSize >= newRecord->totalSize) {
-		// se foi encontrada um posicao valida, insere nela
+	if(smaller < removedCounter && removed[smaller].recordSize >= newRecord->totalSize) {	// se foi encontrada um posicao valida
+		// atualiza o contador de espacos vazios
 		header.removed--;
-		if(smaller == 0) {
-			// insere e atualiza header stackTop para nextOffset do removed[smaller]
+
+		if(smaller == 0) {	// insere no topo da lista
 			fseek(data, header.stackTop, SEEK_SET);
 			offset = ftell(data);
 			write_record(data, newRecord);
+			// atualiza o topo da lista
 			header.stackTop = removed[smaller].nextOffset;
-		} else {
-			// insere
+
+			if(removed[smaller].recordSize >= newRecord->totalSize + minRecordSize) {	// ha espaco para um novo registro
+				// escreve os bytes indicando que ha espaco livre para um novo registro
+				remove.flag = removedRecordFlag;
+				remove.nextOffset = removed[smaller].nextOffset;
+				remove.recordSize = removed[smaller].recordSize - newRecord->totalSize;
+
+				// atualiza o registro de cabecalho
+				header.stackTop = ftell(data);
+				header.removed++;
+
+				// escreve
+				fwrite(&remove, sizeof(remove_t), 1, data);
+
+			} else if(removed[smaller].recordSize > newRecord->totalSize) {	// nao ha espaco para um novo registro, mas sobraram bytes:
+				// insere um '*' para indicar que os proximos bytes sao invalidos
+				fwrite(&d, sizeof(char), 1, data);
+
+				// atualiza o topo da lista
+				header.stackTop = removed[smaller].nextOffset;
+			} else {	// nao sobrou espaco
+				// atualiza o topo da lista
+				header.stackTop = removed[smaller].nextOffset;
+			}
+		} else {	// insere no meio ou fim da lista
 			fseek(data, removed[smaller - 1].nextOffset, SEEK_SET);
 			offset = ftell(data);
 			write_record(data, newRecord);
 
-			// atualiza o nextOffset do removed[smaller - 1]
-			if((smaller - 1) == 0)
-				fseek(data, header.stackTop, SEEK_SET);
-			else
-				fseek(data, removed[smaller - 2].nextOffset, SEEK_SET);
+			if(removed[smaller].recordSize >= newRecord->totalSize + minRecordSize) {	// ha espaco para um novo registro
+				header.removed++;
+				// escreve os bytes indicando que ha espaco livre para um novo registro
+				remove.flag = removedRecordFlag;
+				remove.nextOffset = removed[smaller].nextOffset;
+				remove.recordSize = removed[smaller].recordSize - newRecord->totalSize;
+				newOffset = ftell(data);
+				fwrite(&remove, sizeof(remove_t), 1, data);
 
-			// atualiza removed[smaller - 1] para nextOffset do removed[smaller]
-			removed[smaller - 1].nextOffset = removed[smaller].nextOffset;
-			fwrite(&(removed[smaller - 1]), sizeof(remove_t), 1, data);
+				// vai ate o elemento anterior da lista e atualiza seu campo 'nextOffset' para o offset do espaco livre
+				if((smaller - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[smaller - 2].nextOffset, SEEK_SET);
+
+				fread(&remove, sizeof(remove_t), 1, data);
+				remove.nextOffset = newOffset;
+
+				if((smaller - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[smaller - 2].nextOffset, SEEK_SET);
+
+				fwrite(&remove, sizeof(remove_t), 1, data);
+			} else if(removed[smaller].recordSize > newRecord->totalSize) {	// nao ha espaco para um novo registro, mas sobraram bytes:
+				// insere um '*' para indicar que os proximos bytes sao invalidos
+				fwrite(&d, sizeof(char), 1, data);
+
+				// atualiza o campo 'nextOffset' do elemento anterior da lista para o campo 'nextOffset' do elemento que foi reutilizado
+				if((smaller - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[smaller - 2].nextOffset, SEEK_SET);
+				fread(&removedLast, sizeof(remove_t), 1, data);
+				if((smaller - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[smaller - 2].nextOffset, SEEK_SET);
+				removedLast.nextOffset = removed[smaller].nextOffset;
+				fwrite(&removedLast, sizeof(remove_t), 1, data);
+			} else {	// nao sobrou espaco
+				// atualiza o campo 'nextOffset' do elemento anterior da lista para o campo 'nextOffset' do elemento que foi reutilizado
+				if((smaller - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[smaller - 2].nextOffset, SEEK_SET);
+	
+				fread(&removedLast, sizeof(remove_t), 1, data);
+				if((smaller - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[smaller - 2].nextOffset, SEEK_SET);
+				removedLast.nextOffset = removed[smaller].nextOffset;
+				fwrite(&removedLast, sizeof(remove_t), 1, data);
+			}
 		}
-	} else {
-		// insere no fim do arquivo
+	} else {	// insere no fim do arquivo
 		fseek(data, 0, SEEK_END);
 		offset = ftell(data);
 		write_record(data, newRecord);
@@ -690,11 +785,13 @@ int insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord)
 int insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecord) {
 	FILE *data;
 	header_t header;
-	remove_t *removed;
-	int removedCounter, offset, j, bigger;
+	remove_t *removed, remove, removedLast;
+	int removedCounter, offset, newOffset, j, bigger;
+	char d;
 
 	removedCounter = 0;
 	removed = NULL;
+	d = removedRecordFlag;
 
 	// checa se a chave primaria ja existe
 	if(index_search(indexFilePath, newRecord->ticket) != -1)
@@ -727,38 +824,107 @@ int insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecord
 			bigger = j;
 	}
 
-	if(bigger < removedCounter && removed[bigger].recordSize >= newRecord->totalSize) {
-		// se foi encontrada um posicao valida, insere nela
+	if(bigger < removedCounter && removed[bigger].recordSize >= newRecord->totalSize) {	// se foi encontrada um posicao valida
+		// atualiza o contador de espacos vazios
 		header.removed--;
-		if(bigger == 0) {
-			// insere e atualiza header stackTop para nextOffset do removed[bigger]
+
+		if(bigger == 0) {	// insere no topo da lista
 			fseek(data, header.stackTop, SEEK_SET);
 			offset = ftell(data);
 			write_record(data, newRecord);
+			// atualiza o topo da lista
 			header.stackTop = removed[bigger].nextOffset;
-		} else {
-			// insere
+
+			if(removed[bigger].recordSize >= newRecord->totalSize + minRecordSize) {	// ha espaco para um novo registro
+					// escreve os bytes indicando que ha espaco livre para um novo registro
+					remove.flag = removedRecordFlag;
+					remove.nextOffset = removed[bigger].nextOffset;
+					remove.recordSize = removed[bigger].recordSize - newRecord->totalSize;
+
+					// atualiza o registro de cabecalho
+					header.stackTop = ftell(data);
+					header.removed++;
+
+					// escreve
+					fwrite(&remove, sizeof(remove_t), 1, data);
+
+				} else if(removed[bigger].recordSize > newRecord->totalSize) {	// nao ha espaco para um novo registro, mas sobraram bytes:
+					// insere um '*' para indicar que os proximos bytes sao invalidos
+					fwrite(&d, sizeof(char), 1, data);
+
+					// atualiza o topo da lista
+					header.stackTop = removed[bigger].nextOffset;
+				} else {	// nao sobrou espaco
+					// atualiza o topo da lista
+					header.stackTop = removed[bigger].nextOffset;
+				}
+		} else {	// insere no meio ou fim da lista
 			fseek(data, removed[bigger - 1].nextOffset, SEEK_SET);
 			offset = ftell(data);
 			write_record(data, newRecord);
 
-			// atualiza o nextOffset do removed[bigger - 1]
-			if((bigger - 1) == 0)
-				fseek(data, header.stackTop, SEEK_SET);
-			else
-				fseek(data, removed[bigger - 2].nextOffset, SEEK_SET);
+			if(removed[bigger].recordSize >= newRecord->totalSize + minRecordSize) {	// ha espaco para um novo registro
+				header.removed++;
 
-			// atualiza removed[bigger - 1] para nextOffset do removed[bigger]
-			removed[bigger - 1].nextOffset = removed[bigger].nextOffset;
-			fwrite(&(removed[bigger - 1]), sizeof(remove_t), 1, data);
+				// escreve os bytes indicando que ha espaco livre para um novo registro
+				remove.flag = removedRecordFlag;
+				remove.nextOffset = removed[bigger].nextOffset;
+				remove.recordSize = removed[bigger].recordSize - newRecord->totalSize;
+				newOffset = ftell(data);
+				fwrite(&remove, sizeof(remove_t), 1, data);
+
+				// vai ate o elemento anterior da lista e atualiza seu campo 'nextOffset' para o offset do espaco livre
+				if((bigger - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[bigger - 2].nextOffset, SEEK_SET);
+
+				fread(&remove, sizeof(remove_t), 1, data);
+				remove.nextOffset = newOffset;
+
+				if((bigger - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[bigger - 2].nextOffset, SEEK_SET);
+
+				fwrite(&remove, sizeof(remove_t), 1, data);
+			} else if(removed[bigger].recordSize > newRecord->totalSize) {	// nao ha espaco para um novo registro, mas sobraram bytes:
+				// insere um '*' para indicar que os proximos bytes sao invalidos
+				fwrite(&d, sizeof(char), 1, data);
+
+				// atualiza o campo 'nextOffset' do elemento anterior da lista para o campo 'nextOffset' do elemento que foi reutilizado
+				if((bigger - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[bigger - 2].nextOffset, SEEK_SET);
+				fread(&removedLast, sizeof(remove_t), 1, data);
+				if((bigger - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[bigger - 2].nextOffset, SEEK_SET);
+				removedLast.nextOffset = removed[bigger].nextOffset;
+				fwrite(&removedLast, sizeof(remove_t), 1, data);
+			} else {	// nao sobrou espaco
+				// atualiza o campo 'nextOffset' do elemento anterior da lista para o campo 'nextOffset' do elemento que foi reutilizado
+				if((bigger - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[bigger - 2].nextOffset, SEEK_SET);
+	
+				fread(&removedLast, sizeof(remove_t), 1, data);
+				if((bigger - 1) == 0)
+					fseek(data, header.stackTop, SEEK_SET);
+				else
+					fseek(data, removed[bigger - 2].nextOffset, SEEK_SET);
+				removedLast.nextOffset = removed[bigger].nextOffset;
+				fwrite(&removedLast, sizeof(remove_t), 1, data);
+			}
 		}
-	} else {
-		// insere no fim do arquivo
+	} else {	// insere no fim do arquivo
 		fseek(data, 0, SEEK_END);
 		offset = ftell(data);
 		write_record(data, newRecord);
 	}
-
 
 	// atualiza o cabecalho
 	header.nRecords++;

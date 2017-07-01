@@ -16,7 +16,7 @@
 
 #define delim ';'
 #define removedRecordFlag '*'
-#define minRecordSize 77
+#define minRecordSize 78
 #define fixedSizeFieldsLenght 61
 
 typedef struct record_tag {
