@@ -55,8 +55,9 @@ record_p read_record_main(FILE *stream) {
 		if (line)
 			free(line);
 		line = readLine(stream);
-	} while (strlen(line) > 19);
-	strcpy(record->documento, line);
+	} while (line && strlen(line) > 19);
+	if(line)
+		strcpy(record->documento, line);
 
 
 	do {
@@ -64,23 +65,25 @@ record_p read_record_main(FILE *stream) {
 		if (line)
 			free(line);
 		line = readLine(stream);
-	} while (strlen(line) > 19);
-	strcpy(record->dataHoraCadastro, line);
+	} while (line && strlen(line) > 19);
+	if(line)
+		strcpy(record->dataHoraCadastro, line);
 
 	do {
 		printf("dataHoraAtualiza(max: 19): ");
 		if (line)
 			free(line);
 		line = readLine(stream);
-	} while (strlen(line) > 19);
-	strcpy(record->dataHoraAtualiza, line);
+	} while (line && strlen(line) > 19);
+	if(line)
+		strcpy(record->dataHoraAtualiza, line);
 
 	do {
 		printf("ticket(int): ");
 		if (line)
 			free(line);
 		line = readLine(stdin);
-	} while (!isNumber(line));
+	} while (!line || !isNumber(line));
 	record->ticket = atoi(line);
 
 	if (line)
