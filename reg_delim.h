@@ -84,6 +84,7 @@ record_p read_record(FILE *stream);
 void print_index(char *indexFilePath);
 int remove_index(char *indexFilePath, int ticket);
 int index_search(char *indexFilePath, int ticket);
+void navigate_indices(char *index1Path, char *index2Path, char *index3Path);
 void compare_indices(char *index1Path, char *index2Path, char *index3Path);
 void free_record(record_p record);
 void print_record(record_p record, int i);

@@ -114,20 +114,21 @@ int main(int argc, char *argv[]) {
 
 	exit = 0;
 	while(!exit) {
-		printf("1. Importar arquivo de dados.\n2. Gerar arquivos de indice.\n3. Remover registro.\n4. Inserir registro.\n5. Visualizar estatisticas(arquivo de indice)\n6. Visualizar estatisticas(arquivo de dados)\n7. Sair\n8. Imprime todos os registros.\n\nOpcao: ");
+		printf("1. Importar arquivo de dados.\n2. Gerar arquivos de indice.\n3. Remover registro.\n4. Inserir registro.\n5. Estatisticas sobre os arquivos de indice\n6. Estatisticas sobre as listas de registros removidos\n7. Sair\n8. Imprime todos os registros.\n\nOpcao: ");
 		scanf("%d", &func);
 		switch(func) {
 			case 1:	// importar arquivo de dados
 				import_csv_file(csvPath, file1Path);
 				import_csv_file(csvPath, file2Path);
 				import_csv_file(csvPath, file3Path);
-
+				printf("\nArquivo de dados importado com sucesso. 3 Arquivos de saida foram gerados.\n\n");
 			break;
 
 			case 2:	// gerar arquivos de indice
 				create_index(index1Path, file1Path);
 				create_index(index2Path, file2Path);
 				create_index(index3Path, file3Path);
+				printf("\nArquivos de indice gerados com sucesso.\n\n");
 			break;
 
 			case 3:	// remover registro
@@ -159,11 +160,25 @@ int main(int argc, char *argv[]) {
 
 			break;
 
-			case 5:	// visualizar estatisticas dos arquivos de indice
-				compare_indices(index1Path, index2Path, index3Path);
-			break;
+			case 5:	// visualizar estatisticas sobre os arquivos de indice
+			{
+				int c;
+				do {
+					while ((c = fgetc(stdin)) != '\n')
+						;
+					printf("\nVisualizar um por vez? (s/n): ");
+					c = fgetc(stdin);
+				} while (c != 's' && c != 'n');
 
-			case 6:	// visualizar estatisticas do arquivo de dados
+				if (c == 's')
+					navigate_indices(index1Path, index2Path, index3Path);
+				else if (c == 'n')
+					compare_indices(index1Path, index2Path, index3Path);
+
+				break;
+			}
+
+			case 6:	// visualizar estatisticas sobre as listas de registros removidos
 				print_data_file_header_record(file1Path, file2Path, file3Path);
 				// espera enter para retornar ao menu
 				while(fgetc(stdin) != 10);

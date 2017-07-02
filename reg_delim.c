@@ -746,7 +746,7 @@ int insert_best_fit(char *dataFilePath, char *indexFilePath, record_p newRecord)
 					fseek(data, header.stackTop, SEEK_SET);
 				else
 					fseek(data, removed[smaller - 2].nextOffset, SEEK_SET);
-	
+
 				fread(&removedLast, sizeof(remove_t), 1, data);
 				if((smaller - 1) == 0)
 					fseek(data, header.stackTop, SEEK_SET);
@@ -910,7 +910,7 @@ int insert_worst_fit(char *dataFilePath, char *indexFilePath, record_p newRecord
 					fseek(data, header.stackTop, SEEK_SET);
 				else
 					fseek(data, removed[bigger - 2].nextOffset, SEEK_SET);
-	
+
 				fread(&removedLast, sizeof(remove_t), 1, data);
 				if((bigger - 1) == 0)
 					fseek(data, header.stackTop, SEEK_SET);
@@ -1104,6 +1104,79 @@ void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataF
 	fclose(data3);
 }
 
+// Navega os registros dos indices.
+void navigate_indices(char *index1Path, char *index2Path, char *index3Path)
+{
+	FILE *index1, *index2, *index3;
+	indexh_t header1, header2, header3;
+	int i;
+
+	index1 = fopen(index1Path, "r");
+	index2 = fopen(index2Path, "r");
+	index3 = fopen(index3Path, "r");
+
+	fread(&header1, sizeof(indexh_t), 1, index1);
+	fread(&header2, sizeof(indexh_t), 1, index2);
+	fread(&header3, sizeof(indexh_t), 1, index3);
+
+	// Os tres arquivos sempre terao o mesmo numero de entradas.
+	int numEntries = header1.nElements;
+	index_t entries1[numEntries];
+	index_t entries2[numEntries];
+	index_t entries3[numEntries];
+
+	// Ler todas entradas dos tres indices.
+	for (i = 0; i < numEntries; i++)
+	{
+		fread(&entries1[i], sizeof(index_t), 1, index1);
+		fread(&entries2[i], sizeof(index_t), 1, index2);
+		fread(&entries3[i], sizeof(index_t), 1, index3);
+	}
+
+	fclose(index1);
+	fclose(index2);
+	fclose(index3);
+
+	// Navegar entradas com opcoes anterior, proximo, ir para e voltar ao menu.
+	int opt, quit = 0, entryIndex = 0;
+	do {
+		// Imprimir o registro atual de cada indice lado a lado.
+		printf("\n|--------------------------------------------------------------------------|\n");
+		printf("|    | Indice 1            | |   Indice 2          | |    Indice 3         |\n");
+		printf("|--------------------------------------------------------------------------|\n");
+		printf("|    | Entradas: %4d      | |   Entradas: %4d    | |    Entradas: %4d   |\n", numEntries, numEntries, numEntries);
+		printf("|    | Atual: %7d      | |   Atual: %7d    | |    Atual: %7d   |\n", entryIndex + 1, entryIndex + 1, entryIndex + 1);
+		printf("|--------------------------------------------------------------------------|\n");
+		printf("|   #| Ticket   | Offset   | | Ticket   | Offset   | | Ticket   | Offset   |\n");
+		printf("|--------------------------------------------------------------------------|\n");
+		printf("|    |%10d|%10d| ", entries1[entryIndex].element, entries1[entryIndex].offset);
+		printf("|%10d|%10d| ", entries2[entryIndex].element, entries2[entryIndex].offset);
+		printf("|%10d|%10d|\n", entries3[entryIndex].element, entries3[entryIndex].offset);
+		printf("|--------------------------------------------------------------------------|\n");
+
+		// Gerenciar opcoes.
+		printf("\n1. Anterior\n2. Proximo\n3. Ir para\n4. Voltar ao menu\n\nOpcao: ");
+		scanf("%d", &opt);
+		if (opt == 1) {
+			if (entryIndex > 0)
+				entryIndex--;
+		} else if (opt == 2) {
+				if (entryIndex < numEntries - 1)
+					entryIndex++;
+		} else if (opt == 3) {
+				printf("\nIr para entrada(1 - %d): ", numEntries);
+				scanf("%d", &opt);
+				if (opt >= 1 && opt <= numEntries)
+					entryIndex = opt - 1;
+		} else if (opt == 4) {
+			quit = 1;
+			printf("\n");
+		} else {
+			printf("\nOpcao invalida.");
+		}
+	} while (!quit);
+}
+
 // imprime a tabela com os 3 indices
 void compare_indices(char *index1Path, char *index2Path, char *index3Path) {
 	FILE *index1, *index2, *index3;
@@ -1129,7 +1202,7 @@ void compare_indices(char *index1Path, char *index2Path, char *index3Path) {
 	printf("|    | Entradas: %s", number);
 	getNumber(number, header2.nElements, 4);
 	printf("      | |   Entradas: %s", number);
-	getNumber(number, header2.nElements, 4);
+	getNumber(number, header3.nElements, 4);
 	printf("    | |    Entradas: %s   |\n", number);
 	printf("|--------------------------------------------------------------------------|\n");
 	printf("|   #| Ticket   | Offset   | | Ticket   | Offset   | | Ticket   | Offset   |\n");
