@@ -129,7 +129,7 @@ record_p read_record(FILE *stream) {
 		}
 	} while(recordData[0] == removedRecordFlag && !feof(stream));
 
-	if(!i) return (record_p)NULL;
+	if(!i || recordData[0] == removedRecordFlag) return (record_p)NULL;
 
 	k = 0;
 	size = 19;
