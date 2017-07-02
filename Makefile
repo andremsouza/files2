@@ -1,7 +1,7 @@
 cc = gcc
 src = main.c reg_delim.c
 bin = trab
-flags = -Wall
+flags = -Wall -std=c99
 
 all:
 	$(cc) -o $(bin) $(src) $(flags)
