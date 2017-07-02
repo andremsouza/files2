@@ -109,13 +109,23 @@ int main(int argc, char *argv[]) {
 	record_p record;
 	char a[200];
 
-	//system("cls");
-	//system("clear");
+	check = 0; //checagem de requisitos de operacoes
+	FILE* file = fopen(file1Path, "r");
+	if (file) {
+		// Arquivos de saida ja foram gerados.
+		check = 1;
+		fclose(file);
+		file = fopen(index1Path, "r");
+		if (file) {
+			// Arquivos de indice ja foram gerados.
+			check = 2;
+			fclose(file);
+		}
+	}
 
 	exit = 0;
-	check = 0; //checagem de requisitos de operacoes
 	while(!exit) {
-		printf("1. Importar arquivo de dados.\n2. Gerar arquivos de indice.\n3. Remover registro.\n4. Inserir registro.\n5. Estatisticas sobre os arquivos de indice\n6. Estatisticas sobre as listas de registros removidos\n7. Sair\n8. Imprime todos os registros.\n\nOpcao: ");
+		printf("1. Importar arquivo de dados.\n2. Gerar arquivos de indice.\n3. Remover registro.\n4. Inserir registro.\n5. Estatisticas sobre os arquivos de indice\n6. Estatisticas sobre as listas de registros removidos\n7. Sair\n\nOpcao: ");
 		scanf("%d", &func);
 		if(func > 1 && func != 7){
 			if(check == 0){
@@ -202,10 +212,6 @@ int main(int argc, char *argv[]) {
 		case 7:
 			printf("Programa finalizado.\n");
 			exit = 1;
-			break;
-
-		case 8:
-			print_all_records(file1Path);
 			break;
 
 			// df: pergunta de novo

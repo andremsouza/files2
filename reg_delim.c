@@ -1248,24 +1248,3 @@ void compare_indices(char *index1Path, char *index2Path, char *index3Path) {
 	printf("Pressione enter para retornar ao menu.\n");
 	scanf("%[^\n]s", number);
 }
-
-void print_all_records(char *dataFilePath) {
-	FILE *file;
-	record_p record;
-	int counter;
-
-	file = fopen(dataFilePath, "r");
-	counter = 1;
-
-	while((record = read_record(file))) {
-		print_record(record, counter++);
-	}
-
-	fclose(file);
-
-	char a[100];
-	// espera enter para retornar ao menu
-	while(fgetc(stdin) != 10);
-	printf("Pressione enter para retornar ao menu.\n");
-	scanf("%[^\n]s", a);
-}

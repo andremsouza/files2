@@ -88,7 +88,6 @@ void navigate_indices(char *index1Path, char *index2Path, char *index3Path);
 void compare_indices(char *index1Path, char *index2Path, char *index3Path);
 void free_record(record_p record);
 void print_record(record_p record, int i);
-void print_all_records(char *dataFilePath);
 void print_data_file_header_record(char *dataFile1, char *dataFile2, char *dataFile3);
 
 #endif
